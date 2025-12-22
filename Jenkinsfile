@@ -2,47 +2,74 @@ pipeline {
     agent any
 
     environment {
-        APP_ENV = "dev"
+        DOCKER_IMAGE = "python-flask-app:latest"
+        APP_PORT = "5000"
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('Checkout SCM') {
             steps {
-                checkout scm
+                git branch: 'main', url: 'https://github.com/Mofci/Pythonapp--Jenkins'
             }
         }
 
-        stage('Run Python App') {
+        stage('Install Dependencies') {
             steps {
-                sh 'python3 app.py'
+                sh '''
+                python3 -m venv venv
+                source venv/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                '''
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Unit Tests') {
             steps {
-                sh 'python3 -m pytest test_hello.py'
+                sh '''
+                source venv/bin/activate
+                pytest tests/ --maxfail=1 --disable-warnings
+                '''
+            }
+        }
+
+        stage('Run Python App (Smoke Test)') {
+            steps {
+                sh '''
+                source venv/bin/activate
+                nohup python3 app.py &
+                sleep 5
+                curl -f http://localhost:5000 || exit 1
+                '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t python-hello:1.0 .'
+                sh "docker build -t $DOCKER_IMAGE ."
             }
         }
 
-        stage('Notify') {
+        stage('Run Docker Container') {
             steps {
-                echo 'Build and Docker image creation successful! '
+                sh '''
+                docker rm -f flask_app || true
+                docker run -d -p $APP_PORT:5000 --name flask_app $DOCKER_IMAGE
+                '''
             }
         }
     }
 
     post {
-        failure {
-            echo 'Build failed! '
-        }
         success {
-            echo 'Build succeeded! '
+            echo "Pipeline executed successfully! Flask app running on port $APP_PORT"
+            
+            // slackSend channel: '#devops', message: "Build Successful: $BUILD_URL"
+        }
+        failure {
+            echo "Pipeline failed!"
+            // slackSend channel: '#devops', message: "Build Failed: $BUILD_URL"
         }
     }
 }
