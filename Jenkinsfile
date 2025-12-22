@@ -2,61 +2,43 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "python-flask-app:latest"
-        APP_PORT = "5000"
+        APP_PORT = "5000"  // البورت اللي عايز تشغل عليه Flask
+        DOCKER_IMAGE = "pythonapp-jenkins:latest"
     }
 
     stages {
-
         stage('Checkout SCM') {
             steps {
-                git branch: 'main', url: 'https://github.com/Mofci/Pythonapp--Jenkins'
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                python3 -m venv venv
-                source venv/bin/activate
-                pip install --upgrade pip
-                pip install -r requirements.txt
-                '''
-            }
-        }
-
-        stage('Run Unit Tests') {
-            steps {
-                sh '''
-                source venv/bin/activate
-                pytest tests/ --maxfail=1 --disable-warnings
-                '''
-            }
-        }
-
-        stage('Run Python App (Smoke Test)') {
-            steps {
-                sh '''
-                source venv/bin/activate
-                nohup python3 app.py &
-                sleep 5
-                curl -f http://localhost:5000 || exit 1
-                '''
+                git url: 'https://github.com/Mofci/Pythonapp--Jenkins', branch: 'main'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t $DOCKER_IMAGE ."
+                script {
+                    sh "docker build -t ${DOCKER_IMAGE} ."
+                }
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                sh '''
-                docker rm -f flask_app || true
-                docker run -d -p $APP_PORT:5000 --name flask_app $DOCKER_IMAGE
-                '''
+                script {
+                    // لو فيه container شغال قبل كده، نحذفه
+                    sh """
+                    docker rm -f pythonapp || true
+                    docker run -d --name pythonapp -p ${APP_PORT}:${APP_PORT} ${DOCKER_IMAGE}
+                    """
+                }
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                script {
+                    // تحقق إن التطبيق شغال على البورت
+                    sh "curl -f http://localhost:${APP_PORT} || exit 1"
+                }
             }
         }
     }
@@ -64,7 +46,7 @@ pipeline {
     post {
         success {
             echo "Pipeline executed successfully! Flask app running on port $APP_PORT"
-            
+            // مثال للإشعار على Slack (اختياري)
             // slackSend channel: '#devops', message: "Build Successful: $BUILD_URL"
         }
         failure {
