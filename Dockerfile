@@ -1,26 +1,23 @@
-# استخدم Python 3.12 slim
+# استخدم نسخة Python خفيفة
 FROM python:3.12-slim
 
-# حدد مجلد العمل
+# تحديد مجلد العمل
 WORKDIR /app
 
-# انسخ ملف requirements
+# نسخ ملف الـ requirements
 COPY requirements.txt .
 
-# ثبّت الباكيجات
+# تثبيت الـ dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# انسخ باقي ملفات المشروع
+# نسخ باقي الملفات
 COPY . .
 
-# خليه يسمع على كل الواجهات
+# تحديد متغيرات البيئة للـ Flask
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_RUN_PORT=5000
 
-# افتح البورت
-EXPOSE 5000
-
-# أمر تشغيل التطبيق
-CMD ["flask", "run"]
+# أمر التشغيل (استخدم gunicorn للإنتاج)
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
 
