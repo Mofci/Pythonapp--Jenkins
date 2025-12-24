@@ -25,9 +25,9 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 script {
-                    // مسح أي container موجود بنفس الاسم
+   
                     sh "docker rm -f ${CONTAINER_NAME} || true"
-                    // تشغيل الـ container
+                  
                     sh "docker run -d --name ${CONTAINER_NAME} -p ${APP_PORT}:${APP_PORT} ${IMAGE_NAME}"
                 }
             }
@@ -36,7 +36,7 @@ pipeline {
         stage('Smoke Test') {
             steps {
                 script {
-                    // اختبار تشغيل التطبيق
+               
                     sh "curl -f http://localhost:${APP_PORT}"
                 }
             }
